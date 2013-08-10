@@ -2,7 +2,7 @@
 ##############################################################################
 # you should point where your cross-compiler is		 
 #COMPILER=/home/xiaolu/bin/arm-eabi-4.6/bin/arm-eabi-
-COMPILER=/home/xiaolu/bin/arm-eabi-4.4.3/bin/arm-eabi-
+COMPILER=/home/shiro/android/prebuilt/linux-x86/toolchain/arm-eabi-4.4.3/bin/arm-eabi-
 COMPILER_LIB=$(${COMPILER}gcc -print-libgcc-file-name | sed -r 's/\/libgcc.a$//')
 ##############################################################################
 #set -x
@@ -269,7 +269,7 @@ MAKE_FIPS_BINARY()
 mkpayload()
 {
 	echo "---mkpayload()---" 1>&2	
-	printhl "Make payload file(boot.tar.xz|recovery.tar.xz)."	
+	printhl "Make payload file(boot.tar.xz|recovery.tar.xz) from $PAYLOAD_DIR."
 	cd $tempdir/resources_tmp
 	rm -f boot.tar.xz recovery.tar.xz
 	if [ -d $1/boot ]; then
@@ -432,8 +432,8 @@ if [ -d $2 ]; then
 	printhl "make initramfs.cpio"
 	#mkbootfs $2 > $tempdir/initramfs.cpio
 	cd $2
-	#find . | fakeroot cpio -H newc -o > $tempdir/initramfs.cpio
-	find . | sed 's/\.\///g' | cpio -R 0:0 -H newc -o > $tempdir/initramfs.cpio	
+	#find . | sed 's/\.\///g' | cpio -R 0:0 -H newc -o > $tempdir/initramfs.cpio
+	find . | sed 's/\.\///g' | grep -v -E "\.(payload|git)" | cpio -R 0:0 -H newc -o > $tempdir/initramfs.cpio
 	cd $workdir
 elif [ -f $2 ]; then
 	cp -rf $2 $tempdir/initramfs.cpio
@@ -454,6 +454,22 @@ else
 	compress_type=$5
 fi
 cp -rf $RESOURCES $tempdir/resources_tmp
+
+if([ ! -d "$PAYLOAD_DIR" ] || [ "$PAYLOAD_DIR" == "" ]); then
+
+    PAYLOAD_DIR=$(readlink -f $2)
+    if ([ -d "$PAYLOAD_DIR/.payload/boot" ] || [ -d "PAYLOAD_DIR/.payload/recovery" ]); then
+        PAYLOAD_DIR="$PAYLOAD_DIR/.payload"
+    else
+        PAYLOAD_DIR=$RESOURCES
+    fi
+fi
+
+if [ "$RESOURCES" != "$PAYLOAD_DIR" ]; then
+    rm -rf  $tempdir/resources_tmp/payload
+    cp -rf "$PAYLOAD_DIR" $tempdir/resources_tmp/payload
+fi 
+
 cd $tempdir/resources_tmp
 cp -f $kernel arch/arm/boot/Image
 if [ -z $onlypatch ]; then
